@@ -55,7 +55,7 @@ When you click the **Knit** button a document will be generated that includes bo
 
 
 ```{r setup, include=FALSE}
-# just a comment
+
 knitr::opts_chunk$set(echo = TRUE)
 
 data <- read.csv("C:\\Users\\Keetz\\OneDrive\\Desktop\\Economics\\AGDS 1\\Report exercises\\RE 1\\RE1_tidy_data_S1.csv")
