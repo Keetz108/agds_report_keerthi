@@ -1,0 +1,83 @@
+---
+title: "report_exercise_2"
+output: html_document
+date: '2025-03-03'
+---
+
+library(ggplot2)
+library(readr)
+library(lubridate)
+library(dplyr)
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+data <- read.csv("C:\\Users\\Keetz\\OneDrive\\Desktop\\Economics\\AGDS 1\\Report exercises\\RE 1\\RE1_tidy_data_S1.csv")
+
+data <- read.csv("RE1_tidy_data_S1.csv", col.names = c("Experiment", "Time (years)", "ambient CO2_mean", "elevated CO2_mean", "ambient CO2_n", "elevated CO2_n"))
+
+data <- data[-1, ] 
+
+options(max.print = 10000)  #Adjust the number as needed
+
+data
+
+data$Time..years. <- as.numeric(data$Time..years.)
+
+data$Phase <- cut(data$Time..years., breaks = c(-Inf, 3, 6.001, Inf), labels = c("EarlyPhase", "MidPhase", "LatePhase"), right = FALSE)
+
+data$'ambient.CO2_mean' <- as.numeric(data$'ambient.CO2_mean')
+
+data$'elevated.CO2_mean' <- as.numeric(data$'elevated.CO2_mean')
+
+data$log_Response_Ratio <- log(data$`elevated.CO2_mean` / data$`ambient.CO2_mean`)
+
+agg_LRR <- data %>%
+  group_by(Phase) %>%
+  summarise(mean_LRR = mean(log_Response_Ratio, na.rm = TRUE)) %>%
+  pivot_wider(names_from = Phase, values_from = mean_LRR)
+
+data$agg_LRR_Early <- mean(data$log_Response_Ratio[data$Phase == "EarlyPhase"], na.rm = TRUE)
+
+data$agg_LRR_Mid <- mean(data$log_Response_Ratio[data$Phase == "MidPhase"], na.rm = TRUE)
+
+data$agg_LRR_Late <- mean(data$log_Response_Ratio[data$Phase == "LatePhase"], na.rm = TRUE)
+
+kable(data, caption = "Log-Response Ratios for SOC under Ambient and Elevated CO2")
+
+kable(data.frame(mean_LRR = agg_LRR), caption = "Mean Log-Response Ratio")
+
+```
+#What are the data that you are looking at?
+#Answer: 
+
+
+#What do you expect your analysis to show, what is your hypothesis? How should soil organic matter content change under elevated CO2?
+#Answer: The observation derived from the mean aggregate values is in compliance with the steady state rule of chemical kinetics. During the early phase, when the activity is in its initial stage, the initial primed carbon supply (initial amount of substrate) from atmosphere boosts the activity and therby the soil organic carbon (product). As the process continues with increased activites of plants and microbes, the rate of production of SOC increases and saturates soil, thereby dropping the levels.    
+
+
+#Interpret your results after aggregating the data: What do your final numbers mean? Do they support your initial hypothesis? Why so, why not?
+#The mean aggregate levels show increasing levels from early to mid phases showing an increase in the accumulation of soil organic carbon (SOC) which could be likely due to increased productivity of plants, root exudation and microbial growth and decomposition in the soil. The drastic drop from mid phase to late phase could be accounted to the saturation of soil for furter uptake of carbon due to increased activity of plants and microbes, a concept explained by kinetics.
+
+install.packages("writexl")  # Install if you haven't already
+library(writexl)
+write_xlsx(data, "output.xlsx")
+
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(log_Response_Ratio)
+```
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
