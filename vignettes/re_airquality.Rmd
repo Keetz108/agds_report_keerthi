@@ -35,7 +35,9 @@ library(viridis)
 
 # introduction: this report exercise shows how ozone concentration is influenced by other variables like solar radiation, wind and temperature. To be specific, regression of the ozone variable on other variables (e.g., temperature, solar radiation, wind) is estimated for a directional relationship. Besides, correlation is also estimated to measure the strength and direction of linear association between variables.
 
-ozone <- read.csv("data/RE2_ozone_data.csv")
+here::here("data/RE2_ozone_data.csv")
+
+ozone <- read.csv("../data/RE2_ozone_data.csv")
 
 
 # reshaping data from wide to long for easier plotting of multiple variables
@@ -297,7 +299,7 @@ knitr::kable(monthly_range_values, caption = "Table 3: Monthly Ranges of Ozone, 
 
 # The scatterplots (visualisation 3) aligns with the observations from correlation and regression analysis, described above. Plot showing ozone vs temperature shows a positive correlation showing that as temperature increases, mean ozone concentration also increases. Ozone vs solar radiation does not show a strong correlation but a very moderate to low positive correlation, especially in May, June, July and September. However there are outliers in August which drags down the observations. Plot showing ozone vs wind does not show meaningful observation and the pattern does not follow a straight line and has outliers that could can explain the correlation and regression results. 
 
-# Lastly, a temporal analysis (visualisation 4) was performed to explain the time trend of the variables and explain the change in the relationship of the variables. The plots showing the time trend of ozone levels wrt solar radiation conveys that, except for some spurious points (yellow dots) indicating solar radiation, the levels are irregular albeit with reaching maximum levels in the mid to the end of August. This could be explained by summer season. The ozone levels reach maximum at the
+# Lastly, a temporal analysis (visualisation 4) was performed to explain the time trend of the variables and explain the change in the relationship of the variables. The plots showing the time trend of ozone levels wrt solar radiation conveys that, except for some spurious points (yellow dots) indicating solar radiation, the levels are irregular albeit with reaching maximum levels in the mid to the end of August. This could be explained by summer season. The pattern of the ozone levels from the figure cannot be explained as it does not show a consistent pattern, except that it decreases as it nears the autumn. 
 
 
 ## Including Plots

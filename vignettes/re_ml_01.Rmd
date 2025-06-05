@@ -36,7 +36,7 @@ library(Metrics)
 # Comparison of the linear regression and KNN models
 
 # 1 Load functions from external R script
-source("data/my_analysis_function.R")
+source(paste(here(),"data/my_analysis_function.R", sep= "/"))
 
 # 2 Interpretation below, outside this chunk
 
@@ -81,7 +81,7 @@ ggplot(daily_fluxes_long, aes(x = TIMESTAMP, y = GPP, color = Model)) +
 
 
 # 1. Load the dataset
-daily_fluxes <- read.csv("data/FLX_CH-Dav_FLUXNET2015_FULLSET_DD_1997-2014_1-3.csv")
+daily_fluxes <- read.csv("../data/FLX_CH-Dav_FLUXNET2015_FULLSET_DD_1997-2014_1-3.csv")
 
 
 # 2. Split the data into training and test sets
