@@ -7,8 +7,9 @@ library(ggplot2)
 
 #Comparison of the linear regression and KNN models
 #1
+here::here("..data/FLX_CH-Dav_FLUXNET2015_FULLSET_DD_1997-2014_1-3.csv")
 
-daily_fluxes <- read.csv("data/FLX_CH-Dav_FLUXNET2015_FULLSET_DD_1997-2014_1-3.csv")   
+daily_fluxes <- read.csv("../data/FLX_CH-Dav_FLUXNET2015_FULLSET_DD_1997-2014_1-3.csv")   
   
 # Data cleaning: looks ok, no obviously bad data
 # no long tail, therefore no further target engineering
