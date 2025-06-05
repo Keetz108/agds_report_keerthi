@@ -1,8 +1,31 @@
 ---
 title: "Report Exercise 4"
-output: html_document
+author: keerthi
 date: "2025-04-28"
+output: html_document
+
 ---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# installing packages in case not installed
+use_pkgs <- c("dplyr", "rmarkdown", "tidyverse","knitr", "tidyr", "ggplot2")  
+new_pkgs <- use_pkgs[!(use_pkgs %in% installed.packages()[, "Package"])]
+if (length(new_pkgs) > 0) install.packages(new_pkgs,repos = "http://cran.us.r-project.org")
+invisible(lapply(use_pkgs, require, character.only = TRUE))
+
+# loading required libraries
+library(dplyr)
+library(rmarkdown)
+library(tidyverse)
+library(knitr)
+library(here)
+library(tidyr)
+library(ggplot2)
+```
+
+
 
 ```{r setup, include=FALSE}
 
@@ -12,7 +35,7 @@ library(writexl)
 
 setwd("C:/Users/Keetz/OneDrive/Desktop/Economics/AGDS 1/Report exercises/RE 4_Regression")
 
-data <- read.csv('df_for_stepwise_regression.csv')
+data <- read.csv('data/df_for_stepwise_regression.csv')
 data
 
 colSums(!is.na(data))

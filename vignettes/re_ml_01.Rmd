@@ -67,52 +67,150 @@ ggplot(daily_fluxes_long, aes(x = TIMESTAMP, y = GPP, color = Model)) +
 
 ```
 
+
+
 ```{r analysis 2}
 
 # The role of k
 
 # 1 Hypothesis formulation described outside the chunk
-
 # 2 Putting hypothesis to test 
-
-source("data/hypothesis_to_test.R")
-
-
-
+# splitting data and visualisation
+# overfitting and underfitting regions in the graph
+# f(k)= MAE
 
 
+# 1. Load the dataset
+daily_fluxes <- read.csv("data/FLX_CH-Dav_FLUXNET2015_FULLSET_DD_1997-2014_1-3.csv")
+
+
+# 2. Split the data into training and test sets
+set.seed(1982)  # For reproducibility
+split <- initial_split(daily_fluxes, prop = 0.7, strata = "VPD_F")
+daily_fluxes_train <- training(split)
+daily_fluxes_test <- testing(split)
+
+
+# 3. Preprocessing recipe: using key predictors
+pp <- recipe(GPP_NT_VUT_REF ~ SW_IN_F + VPD_F + TA_F, 
+             data = daily_fluxes_train |> drop_na()) |> 
+  step_BoxCox(all_predictors()) |> 
+  step_center(all_numeric_predictors()) |>
+  step_scale(all_numeric_predictors())
+
+
+# 4. Train KNN model using 10-fold cross-validation
+set.seed(1982)
+mod_cv <- train(pp, 
+                data = daily_fluxes_train |> drop_na(), 
+                method = "knn",
+                trControl = trainControl(method = "cv", number = 10),
+                tuneGrid = data.frame(k = c(2, 5, 10, 15, 20, 25, 30, 35, 40, 60, 100)),
+                metric = "MAE")  # Evaluation metric, but Rsquared also reported
+
+print(mod_cv)
+
+# 5. Extract and reshape results for plotting
+results_df <- mod_cv$results %>%
+  select(k, MAE, Rsquared) %>%
+  pivot_longer(cols = c("MAE", "Rsquared"),
+               names_to = "Metric",
+               values_to = "Value")
+
+
+# 6. Plot MAE and R² vs k
+ggplot(results_df, aes(x = k, y = Value, color = Metric)) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  scale_color_manual(values = c("MAE" = "red", "Rsquared" = "blue")) +
+  labs(title = "Model Complexity (k) vs. MAE and R-squared",
+       x = "Number of Neighbors (k)",
+       y = "Metric Value",
+       color = "Metric") +
+  theme_minimal()
+
+
+# 7. overfitting and underfitting regions in the graph from 6
+
+# Function to compute test set MAE for a given k
+get_test_mae <- function(k_value) {
+  set.seed(1982)
+  
+  # Create pre-processing recipe
+  pp <- recipe(GPP_NT_VUT_REF ~ SW_IN_F + VPD_F + TA_F, data = daily_fluxes_train) |>
+    step_BoxCox(all_predictors()) |>
+    step_center(all_numeric_predictors()) |>
+    step_scale(all_numeric_predictors())
+  
+  # Fit KNN model
+  mod <- train(
+    pp,
+    data = daily_fluxes_train |> drop_na(),
+    method = "knn",
+    tuneGrid = data.frame(k = k_value),
+    trControl = trainControl(method = "none")  # no CV, we want to evaluate on test set
+  )
+  
+  # Predict on test set
+  preds <- predict(mod, newdata = daily_fluxes_test |> drop_na())
+  
+  # True values
+  actual <- daily_fluxes_test |> drop_na() |> pull(GPP_NT_VUT_REF)
+  
+  # Compute MAE
+  mae <- yardstick::mae_vec(truth = actual, estimate = preds)
+  
+  return(mae)
+}
 
 
 
+# 8. Example usage
+
+get_test_mae(5)
+get_test_mae(40)
+
+k_values <- c(2, 5, 10, 20, 40, 60, 100)
+test_maes <- sapply(k_values, get_test_mae)
+
+plot_df <- data.frame(k = k_values, Test_MAE = test_maes)
+
+ggplot(plot_df, aes(x = k, y = Test_MAE)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "Test MAE vs. k",
+       x = "k (number of neighbors)",
+       y = "Test MAE")
 
 
 
+# 9 Finding optimal k
 
+find_optimal_k <- function(k_values, train_data, test_data, predictors, response) {
+  mae_test <- sapply(k_values, function(k) {
+    model <- train(
+      x = train_data[, predictors],
+      y = train_data[[response]],
+      method = "knn",
+      tuneGrid = data.frame(k = k),
+      trControl = trainControl(method = "none")
+    )
+    preds <- predict(model, newdata = test_data[, predictors])
+    mean(abs(preds - test_data[[response]]))
+  })
+  optimal_k <- k_values[which.min(mae_test)]
+  return(list(optimal_k = optimal_k, mae_test = mae_test))
+}
 
-
-
-
-
-
-
+# Usage:
+results <- find_optimal_k(k_values = 1:40, train_data, test_data, predictors, response)
+cat("Optimal k:", results$optimal_k, "\n")
 
 
 
 knitr::opts_chunk$set(echo = TRUE)
 
 ```
-
-
-
-
-
-
-
-
-
-
-
-
 
 # 2. Interpret observed differences in the context of the bias-variance trade-off:
 
@@ -121,7 +219,7 @@ knitr::opts_chunk$set(echo = TRUE)
 # lm Train value:R sq 0.67 and RMSE 1.58; Test value: R sq 0.67 and RMSE 1.6
 # KNN Train value:R sq 0.77 and RMSE 1.31; Test value: R sq 0.72 and RMSE 1.49
 
-# Interpretation: Linear regression model (lm) is not particularly flexible and it has only two parameters, slope and intercept, providing a straight line for the best fit between predictors and targets. owing to its simplicity, there is a risk of not fully capturing the complexity of the data, and missing out the better precision of the interactions between predictors and targets. Unlike lm, K-Nearest Neighbours (KNN) model is a machine learning method which is extremely flexible that it provides information on the highly non-linear relationships and deal with interactions between large number of targets and predictors. This also bears the risk of overfitting.In the given data set run using lm  (train: R sq 0.67 and RMSE 0.58, test: R sq 0.67 and RMSE 0.6) and KNN (train: R sq 0.77 and RMSE 1.31, test: R sq 0.72 and RMSE 1.49), the larger values for the KNN model compared to lm could be attributed to the latter's better sensitivity in capturing the relationships between targets and predictors. This could also lead to overfitting. Although variance explained through R sq in KNN model suggest a better fit of 77% in train and 72% in test, the RMSE values 1.31 and 1.49 of train and test shows the possibility of overfitting.
+# Interpretation: Linear regression model (lm) is not particularly flexible and it has only two parameters, slope and intercept, providing a straight line for the best fit between predictors and targets. Owing to its simplicity, there is a risk of not fully capturing the complexity of the data, and missing out the better precision of the interactions between predictors and targets. Unlike lm, K-Nearest Neighbours (KNN) model is a machine learning method which is extremely flexible that it provides information on the highly non-linear relationships and deal with interactions between large number of targets and predictors. This also bears the risk of overfitting.In the given data set run using lm  (train: R sq 0.67 and RMSE 0.58, test: R sq 0.67 and RMSE 0.6) and KNN (train: R sq 0.77 and RMSE 1.31, test: R sq 0.72 and RMSE 1.49), the larger values for the KNN model compared to lm could be attributed to the latter's better sensitivity in capturing the relationships between targets and predictors. This could also lead to overfitting. Although variance explained through R sq in KNN model suggest a better fit of 77% in train and 72% in test, the RMSE values 1.31 and 1.49 of train and test shows the possibility of overfitting.
 
 # 2b. Why does the evaluation on the test set indicate a better model performance of the KNN model than the linear regression model?
 
@@ -129,7 +227,6 @@ knitr::opts_chunk$set(echo = TRUE)
 # Test set values (lm model): R sq 0.67 and RMSE 1.6
 
 # In the test set, KNN model, although having the risk of overfitting, has performed better than lm. R sq values have risen to 0.72 from 0.67 which captures better information about the variance in the test data therby improving the fit of the model. RMSE values, which measures the magnitude of errors in the predictions, improved from 1.6 to 1.49 in KNN model. This means the difference between the true and predicted values have reduced increasing the credibility of the KNN model. Thus, KNN model performs better on the test set as compared to the lm model.
-
 
 
 
@@ -143,10 +240,13 @@ knitr::opts_chunk$set(echo = TRUE)
 # As k approaches 1, the MAE of the model might be low resulting in overfitting. As k approaches N, the MAE increases resulting in higher MAE resulting in underfitting. 
 
 
-
 # 2. Testing hypothesis
 
-# 
+# splitting data and visualisation
+# overfitting and underfitting regions in the graph
+# f(k)= MAE
+
+
 
 ```{r setup, include=FALSE}
 
@@ -188,11 +288,7 @@ ggplot(daily_fluxes_long, aes(x = TIMESTAMP, y = GPP, color = Model)) +
 
 knitr::opts_chunk$set(echo = TRUE)
 ```
-## R Markdown
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
 ```{r cars}
 summary(cars)
