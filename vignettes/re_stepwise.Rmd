@@ -33,9 +33,10 @@ library(dplyr)
 library(ggplot2)
 library(writexl)
 
-setwd("C:/Users/Keetz/OneDrive/Desktop/Economics/AGDS 1/Report exercises/RE 4_Regression")
 
-data <- read.csv('data/df_for_stepwise_regression.csv')
+here::here("data/RE4_df_for_stepwise_regression.csv")
+
+data <- read.csv("../data/RE4_df_for_stepwise_regression.csv")
 data
 
 colSums(!is.na(data))
