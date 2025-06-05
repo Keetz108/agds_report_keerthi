@@ -1,0 +1,78 @@
+---
+title: "re1_analyzing changes in soil organic matter during elevated CO2 experiments"
+author: keerthi
+date: '2025-03-03'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# installing packages in case not installed
+use_pkgs <- c("dplyr", "rmarkdown", "tidyverse","knitr", "tidyr", "ggplot2")  
+new_pkgs <- use_pkgs[!(use_pkgs %in% installed.packages()[, "Package"])]
+if (length(new_pkgs) > 0) install.packages(new_pkgs,repos = "http://cran.us.r-project.org")
+invisible(lapply(use_pkgs, require, character.only = TRUE))
+
+# loading required libraries
+library(dplyr)
+library(rmarkdown)
+library(tidyverse)
+library(knitr)
+library(here)
+library(tidyr)
+library(ggplot2)
+```
+
+```{r analysis1}
+
+#introduction: this report exercise shows analyses of changes in soil organic matter during elevated CO2 experiments
+
+# analysis
+
+here::here("data/RE1_tidy_data_S1.csv")
+
+data <- read.csv("data/RE1_tidy_data_S1.csv", col.names = c("Experiment", "Time (years)", "ambient CO2_mean", "elevated CO2_mean", "ambient CO2_n", "elevated CO2_n"))
+
+data <- data[-1, ] 
+
+options(max.print = 10000)  #Adjust the number as needed
+
+data
+
+data$Time..years. <- as.numeric(data$Time..years.)
+
+data$Phase <- cut(data$Time..years., breaks = c(-Inf, 3, 6.001, Inf), labels = c("EarlyPhase", "MidPhase", "LatePhase"), right = FALSE)
+
+data$'ambient.CO2_mean' <- as.numeric(data$'ambient.CO2_mean')
+
+data$'elevated.CO2_mean' <- as.numeric(data$'elevated.CO2_mean')
+
+data$log_Response_Ratio <- log(data$`elevated.CO2_mean` / data$`ambient.CO2_mean`)
+
+agg_LRR <- data %>%
+  group_by(Phase) %>%
+  summarise(mean_LRR = mean(log_Response_Ratio, na.rm = TRUE)) %>%
+  pivot_wider(names_from = Phase, values_from = mean_LRR)
+
+data$agg_LRR_Early <- mean(data$log_Response_Ratio[data$Phase == "EarlyPhase"], na.rm = TRUE)
+
+data$agg_LRR_Mid <- mean(data$log_Response_Ratio[data$Phase == "MidPhase"], na.rm = TRUE)
+
+data$agg_LRR_Late <- mean(data$log_Response_Ratio[data$Phase == "LatePhase"], na.rm = TRUE)
+
+#tables from knitr function
+kable(data, caption = "Log-Response Ratios for SOC under Ambient and Elevated CO2")
+kable(data.frame(mean_LRR = agg_LRR), caption = "Mean Log-Response Ratio")
+```
+
+# Introduction: this report exercise shows analyses of changes in soil organic matter during elevated CO2 experiments
+
+# What are the data that you are looking at?
+# Answer: The data shows the changes in the soil organic carbon over the years (classified as early, mid and late phases) in different ecosystems in reponse to exposure of different CO2 exposure.
+
+# What do you expect your analysis to show, what is your hypothesis? How should soil organic matter content change under elevated CO2?
+# Answer: The observation derived from the mean aggregate values is in compliance with the steady state rule of chemical kinetics. During the early phase, when the activity is in its initial stage, the initial primed carbon supply (initial amount of substrate) from atmosphere boosts the activity and therby the soil organic carbon (product). As the process continues with increased activites of plants and microbes, the rate of production of SOC increases and saturates soil, thereby dropping the levels. It establishes a feedback loop to be in equilibrium.    
+
+# Interpret your results after aggregating the data: What do your final numbers mean? Do they support your initial hypothesis? Why so, why not?
+# The mean aggregate levels show a gradual increase in soil organic carbon levels from early to mid phase in the exposed ecosystems. This infers slow accumulation of soil organic carbon (SOC) which could be likely due to increased productivity of plants, root exudation, biomass accumulation and microbial decomposition in the soil. However this increase is modest and does not continue after 6th year. After 6th year, there is a drastic decline in SOC levels (from end of mid phase to late phase) which could be accounted to the carbon saturation of soil which limits further carbon storage. This results in loss of soil carbon through its oxidation turning to CO2. Gradually, it stabilizes/ equilibrates soil carbon levels. This pattern aligns with kinetic limitations on soil carbon storage.

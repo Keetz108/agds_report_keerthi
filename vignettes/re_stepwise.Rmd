@@ -1,0 +1,99 @@
+---
+title: "Report Exercise 4"
+output: html_document
+date: "2025-04-28"
+---
+
+```{r setup, include=FALSE}
+
+library(dplyr)
+library(ggplot2)
+library(writexl)
+
+setwd("C:/Users/Keetz/OneDrive/Desktop/Economics/AGDS 1/Report exercises/RE 4_Regression")
+
+data <- read.csv('df_for_stepwise_regression.csv')
+data
+
+colSums(!is.na(data))
+
+sum(!is.na(data))
+
+dim(na.omit(data[,-c(1,2,12)]))
+
+var_data <- data[,-c(1,2,12)]
+var_data
+
+#rearranging
+var_data_new <- var_data[,c(13,1:12,14)]
+var_data_new
+
+#Exercise 1
+#Set response variable
+resp_var <- "GPP_NT_VUT_REF"
+
+#List of all predictors
+predictors <- setdiff(names(var_data_new), resp_var)
+predictors
+
+#Create empty lists to store results
+aic_list <- c()
+model_list <- list()
+
+#Looping through each predictor
+for (pred in predictors) {
+  formula_str <- paste(resp_var, "~", pred)
+  model <- lm(as.formula(formula_str), data = var_data_new)
+  model_list[[pred]] <- model
+  aic_list[pred] <- AIC(model)
+}
+
+best_predictor <- names(which.min(aic_list))
+best_aic <- min(aic_list)
+
+cat("Best predictor:", best_predictor, "| AIC:", best_aic, "\n")
+
+aic_df <- data.frame(Predictor = names(aic_list), AIC = unname(aic_list))
+
+#Visualisation
+ggplot(aic_df, aes(x = reorder(Predictor, AIC), y = AIC)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  coord_flip() +
+  labs(title = "AIC of Bivariate Models (Single Predictor)", 
+       x = "Predictor", y = "AIC") +
+  theme_minimal()
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{R}
+# Load data
+#Set response variable
+response <- "GPP_NT_VUT_REF"
+
+#List of all predictors
+predictors <- setdiff(names(var_data_new), response)
+predictors
+
+r2_results <- data.frame(predictor = predictors, R2 = NA)
+
+for (i in seq_along(predictors)) {
+  formula <- as.formula(paste(response, "~", predictors[i]))
+  model <- lm(formula, data = data)
+  r2_results$R2[i] <- summary(model)$r.squared
+}
+
+r2_results <- r2_results[order(-r2_results$R2), ]
+
+print(r2_results)
+
+# Visualisation
+library(ggplot2)
+ggplot(r2_results, aes(x = reorder(predictor, R2), y = R2)) +
+  geom_col(fill = "skyblue") +
+  coord_flip() +
+  labs(title = "R² for Each Bivariate Model", x = "Predictor", y = "R²")
+
+```
+

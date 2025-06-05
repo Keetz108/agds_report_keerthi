@@ -1,0 +1,446 @@
+---
+title: "re2_getting creative with ozone concentration"
+author: "keerthi"
+date: "2025-03-10"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# installing packages in case not installed
+use_pkgs <- c("dplyr", "rmarkdown", "tidyverse","knitr", "tidyr", "ggplot2", "lubridate", "corrplot", "car", "viridis")  
+new_pkgs <- use_pkgs[!(use_pkgs %in% installed.packages()[, "Package"])]
+if (length(new_pkgs) > 0) install.packages(new_pkgs,repos = "http://cran.us.r-project.org")
+invisible(lapply(use_pkgs, require, character.only = TRUE))
+
+# loading required libraries
+library(dplyr)
+library(rmarkdown)
+library(tidyverse)
+library(knitr)
+library(here)
+library(tidyr)
+library(ggplot2)
+library(lubridate)
+library(corrplot)
+library(car)
+library(viridis)
+```
+
+
+```{r analysis1}
+
+# introduction: this report exercise shows how ozone concentration is influenced by other variables like solar radiation, wind and temperature. To be specific, regression of the ozone variable on other variables (e.g., temperature, solar radiation, wind) is estimated for a directional relationship. Besides, correlation is also estimated to measure the strength and direction of linear association between variables.
+
+ozone <- read.csv("data/RE2_ozone_data.csv")
+
+
+# reshaping data from wide to long for easier plotting of multiple variables
+ozone_long <- ozone %>%
+  pivot_longer(cols = c(Ozone, Solar.R, Wind, Temp), names_to = "Variable", values_to = "Value")
+
+
+# cleaning the data- removal of NA and imputing
+# imputing missing values in solar.R
+mean_solar <- mean(ozone$Solar.R, na.rm = TRUE)
+ozone$Solar.R[is.na(ozone$Solar.R)] <- mean_solar
+
+# remove rows where Ozone is NA
+ozone_clean <- ozone%>% filter(!is.na(Ozone))
+
+# only keep relevant numeric columns (removing rows with NA)
+ozone_clean <- ozone %>%
+  select(Ozone, Solar.R, Wind, Temp) %>%
+  drop_na()
+
+
+# boxplot- visualization 1
+
+# plot boxplots for each variable grouped by Month
+ggplot(ozone_long, aes(x = factor(Month), y = Value)) +
+  geom_boxplot() +
+  stat_boxplot(geom = "errorbar", width = 0.25) +  # adds the horizontal bar (whisker caps)
+  facet_wrap(~ Variable, scales = "free_y") +
+  labs(x = "Month", y = "Value", title = "Monthly Boxplots of Variables") +
+  theme_minimal()
+
+ggplot(ozone_long, aes(x = factor(Month), y = Value)) +
+  geom_boxplot() +
+  stat_boxplot(geom = "errorbar", width = 0.25) +
+  geom_jitter(width = 0.2, alpha = 0.5) +  # add daily points with some horizontal jitter
+  facet_wrap(~ Variable, scales = "free_y") +
+  labs(x = "Month", y = "Value", title = "Monthly Boxplots with Daily Points") +
+  theme_minimal()
+
+
+# statistical metrics- mean, median, range
+
+# mean
+monthly_mean_values <- ozone %>%
+  group_by(Month) %>%
+  summarise(
+    mean_Ozone = mean(Ozone, na.rm = TRUE),
+    mean_Solar = mean(Solar.R, na.rm = TRUE),
+    mean_Wind = mean(Wind, na.rm = TRUE),
+    mean_Temp = mean(Temp, na.rm = TRUE)
+  )
+print(monthly_mean_values)
+
+# median
+monthly_median_values <- ozone %>%
+  group_by(Month) %>%
+  summarise(
+    median_Ozone = median(Ozone, na.rm = TRUE),
+    median_Solar = median(Solar.R, na.rm = TRUE),
+    median_Wind = median(Wind, na.rm = TRUE),
+    median_Temp = median(Temp, na.rm = TRUE)
+  )
+
+print(monthly_median_values)
+
+# range 
+monthly_range_values <- ozone %>%
+  group_by(Month) %>%
+  summarise(
+    range_Ozone = max(Ozone, na.rm = TRUE) - min(Ozone, na.rm = TRUE),
+    range_Solar = max(Solar.R, na.rm = TRUE) - min(Solar.R, na.rm = TRUE),
+    range_Wind = max(Wind, na.rm = TRUE) - min(Wind, na.rm = TRUE),
+    range_Temp = max(Temp, na.rm = TRUE) - min(Temp, na.rm = TRUE)
+  )
+
+print(monthly_range_values)
+
+# max, min and range by month
+monthly_max_min_range <- ozone %>%
+  group_by(Month) %>%
+  summarise(
+    max_Ozone = max(Ozone, na.rm = TRUE),
+    min_Ozone = min(Ozone, na.rm = TRUE),
+    range_Ozone = max_Ozone - min_Ozone,
+    
+    max_Solar = max(Solar.R, na.rm = TRUE),
+    min_Solar = min(Solar.R, na.rm = TRUE),
+    range_Solar = max_Solar - min_Solar,
+    
+    max_Wind = max(Wind, na.rm = TRUE),
+    min_Wind = min(Wind, na.rm = TRUE),
+    range_Wind = max_Wind - min_Wind,
+    
+    max_Temp = max(Temp, na.rm = TRUE),
+    min_Temp = min(Temp, na.rm = TRUE),
+    range_Temp = max_Temp - min_Temp
+  )
+
+print(monthly_max_min_range)
+
+# correlation matrix- visualization 2
+
+# ozone vs solar.R, Wind, Temp
+cor(ozone_clean$Ozone, ozone_clean$Solar.R)  # Ozone vs Solar.R
+cor(ozone_clean$Ozone, ozone_clean$Wind)     # Ozone vs Wind
+cor(ozone_clean$Ozone, ozone_clean$Temp)     # Ozone vs Temp
+
+cor(ozone_clean)
+
+# correlation matrix_visualization
+corr_matrix <- cor(ozone_clean)
+corrplot(corr_matrix, method = "circle", type = "lower", tl.cex = 0.8)
+
+
+#regression analysis
+
+model <- lm(Ozone ~ Solar.R + Wind + Temp, data = ozone_clean)
+summary(model)
+
+#checking multicollinearity
+vif(model)
+
+
+# regression with sub plots- visualization 3
+ozone_raw <- ozone %>%
+  mutate(Date = make_date(year = 1973, month = Month, day = Day))
+
+ozone_clean_month <- ozone_raw
+ozone_clean_month$month_name <- month(ozone_raw$Month, label = TRUE)
+
+# ozone vs solar.r
+ggplot(
+  data = ozone_clean_month,
+  aes(x = Solar.R, y = Ozone)
+) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(formula = y ~ x + 0, method = "lm", color = "red", se = FALSE) +
+  labs(
+    x = expression(paste("Solar.R (lang)")),
+    y = expression(paste("Ozone (ppb)")),
+    caption = "Scatter plot of Ozone vs Solar Radiation for each month from May to September. 
+               Red lines show linear regression fits with zero intercept."
+  ) +
+  facet_wrap(~month_name) +
+  theme_classic() +
+  theme(
+    plot.caption = element_text(hjust = 0, margin = margin(t = 10, b = 10), size = 9),
+    plot.caption.position = "plot"
+  )
+
+# ozone vs wind
+ggplot(
+  data = ozone_clean_month,
+  aes(x = Wind, y = Ozone)
+) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(formula = y ~ x + 0, method = "lm", color = "red", se = FALSE) +
+  labs(
+    x = expression(paste("Wind (mph)")),
+    y = expression(paste("Ozone (ppb)")),
+    caption = "Scatter plot of Ozone vs Wind for each month from May to September. 
+               Red lines show linear regression fits with zero intercept."
+  ) +
+  facet_wrap(~month_name) +
+  theme_classic() +
+  theme(
+    plot.caption = element_text(hjust = 0, margin = margin(t = 10, b = 10), size = 9),
+    plot.caption.position = "plot"
+  )
+
+# ozone vs Temp
+ggplot(
+  data = ozone_clean_month,
+  aes(x = Temp, y = Ozone)
+) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(formula = y ~ x + 0, method = "lm", color = "red", se = FALSE) +
+  labs(
+    x = expression(paste("Temp (°F)")),
+    y = expression(paste("Ozone (ppb)")),
+    caption = "Scatter plot of Ozone vs Temperature for each month from May to September. 
+               Red lines show linear regression fits with zero intercept."
+  ) +
+  facet_wrap(~month_name) +
+  theme_classic() +
+  theme(
+    plot.caption = element_text(hjust = 0, margin = margin(t = 10, b = 10), size = 9),
+    plot.caption.position = "plot"
+  )
+
+
+# time series- temporal analysis: visualization 4
+
+# adding date from raw data 
+ozone_raw <- ozone %>%
+  mutate(Date = make_date(year = 1973, month = Month, day = Day))
+
+# Create a copy of ozone_clean
+ozone_clean_new <- ozone_clean
+
+# Add the Date column from ozone_raw, but only up to the number of rows in ozone_clean
+ozone_clean_new$Date <- ozone_raw$Date[1:nrow(ozone_clean_new)]
+
+# Ozone vs Solar.R
+ggplot(data = ozone_clean_new, aes(x = Date, y = Ozone)) +
+  geom_line() +
+  geom_point(aes(color = Solar.R), size = 1) +
+  labs(
+    title = "Ozone Levels Over Time (colored by Solar.R)",
+    x = "Date",
+    y = "Ozone (ppb)",
+    color = "Solar.R (lang)"
+  ) +
+  scale_color_viridis_c(option = "D", direction = -1) +
+  theme_classic()
+
+# Ozone vs Wind
+ggplot(data = ozone_clean_new, aes(x = Date, y = Ozone)) +
+  geom_line() +
+  geom_point(aes(color = Wind), size = 1) +
+  labs(
+    title = "Ozone Levels Over Time (colored by Wind)",
+    x = "Date",
+    y = "Ozone (ppb)",
+    color = "Wind (mph)"
+  ) +
+  scale_color_viridis_c(option = "D", direction = -1) +
+  theme_classic()
+
+# Ozone vs Temp
+ggplot(data = ozone_clean_new, aes(x = Date, y = Ozone)) +
+  geom_line() +
+  geom_point(aes(color = Temp), size = 1) +
+  labs(
+    title = "Ozone Levels Over Time (colored by Temp)",
+    x = "Date",
+    y = "Ozone (ppb)",
+    color = "Temp (°F)"
+  ) +
+  scale_color_viridis_c(option = "D", direction = -1) +
+  theme_classic()
+
+
+# tables from knitr function- Mean, Median, Range
+
+knitr::kable(monthly_mean_values, caption = "Table 1: Monthly Mean of Ozone, Solar Radiation, Wind, and Temperature.")
+knitr::kable(monthly_median_values, caption = "Table 2: Monthly Median of Ozone, Solar Radiation, Wind, and Temperature.")
+knitr::kable(monthly_range_values, caption = "Table 3: Monthly Ranges of Ozone, Solar Radiation, Wind, and Temperature.")
+
+
+```
+# The dataset used in this report exercise are diurnal air quality measurements based on four variables- 1) mean ozone levels measured in in ppb (parts per billion), 2) solar radiation measured in Langleys (lang) a unit of heat transmission to express the rate of solar radation received by the earth, 3) Average Wind speed measured in miles per hour (mph), 4) Maximum daly temperature measured in degrees Fahrenheit  (degree F). These measurements are from Roosevelt Island in New York.Th ere are around 153 observations (diurnal/ diurnal data points), in total, spread across 5 months from May 1973 - September 1973. 
+
+# To understand the spread of these data points and identify outliers, box plots (visualization 1, without and with jitter points) were constructed for each variable across 5 months (May-September). The ozone variable shows right skewness with outliers, and mean greater than median, with the higher value outlier dragging the mean. This is true for all months except July. Compared to ozone, the rest of the variables have lesser outliers or extreme (abrupt) values. Solar radiation seemed to be left skewed in July, August and September, with  no outliers in August and September. It shows that the soalr radaition gradually decreases which makes sense as the daylight hours decreases and set the start of autumn. Solar radiation and ozone almost follows the same trend when taken into account the median lines. This trend also is in alignment with temperature variable during Auguts and September. With even lesser outlier, wind variable shows a slight increase to september again which implies onset of autumn. Mean, median and range values tabulated are in alignment with the boxplot and the outliers.
+
+# Upon observing how the ozone, temperature and solar radiation follows the same trend and how it reflects the wind patterns with the seasonal changes from early to summer to autumnal onset, the next step was to understand their correlation using correlation matrix (visualisation 2). The matrix values nearing 1 has the strongest correlation and nearing -1 the lowest. With ozone being the target variable, the correlation matrix values of ozone vs solar radiation, ozone vs temperature and ozone vs wind were considered for this exercise. In this direction, ozone and temperature has the highest value 0.69 inferring strongest correlation followed by ozone and solar radiation having 0.34. The weakest correlation between ozone and wind wsas given by the value -0.60.
+
+# One of the questions I aim to explore is how the ozone variable is influenced by Solar radiation, Wind and Temperature. To investigate this, I am performing a regression analysis with Ozone as the dependent (target) variable and the others as independent (predictors). For this a regression analysis was done and multicollinearity tested to test if the output is influenced by the correlation of the predictor variables. Regression analysis shows that with each degree fahrenheit increase in temperature the mean ozone increases by 1.66 ppb and with each increase lang increase in solar radiation the mean ozone increases by 0.06 ppb. Both of these values are not a huge increase, but direct towards a statistically relevant pattern (p value < 0.05) that may warrant further investigation. It can also be interpreted that solar radiation is not a variable that could facilitate ozone depeltion considering this data was recorded in 1973, early 1970's, when CFCs were affecting ozone levels. 
+
+# The scatterplots (visualisation 3) aligns with the observations from correlation and regression analysis, described above. Plot showing ozone vs temperature shows a positive correlation showing that as temperature increases, mean ozone concentration also increases. Ozone vs solar radiation does not show a strong correlation but a very moderate to low positive correlation, especially in May, June, July and September. However there are outliers in August which drags down the observations. Plot showing ozone vs wind does not show meaningful observation and the pattern does not follow a straight line and has outliers that could can explain the correlation and regression results. 
+
+# Lastly, a temporal analysis (visualisation 4) was performed to explain the time trend of the variables and explain the change in the relationship of the variables. The plots showing the time trend of ozone levels wrt solar radiation conveys that, except for some spurious points (yellow dots) indicating solar radiation, the levels are irregular albeit with reaching maximum levels in the mid to the end of August. This could be explained by summer season. The ozone levels reach maximum at the
+
+
+## Including Plots
+```{r plots}
+
+# Boxplots
+# Plot boxplots for each variable grouped by Month
+ggplot(ozone_long, aes(x = factor(Month), y = Value)) +
+  geom_boxplot() +
+  facet_wrap(~ Variable, scales = "free_y") +  # separate plot for each variable, free y-axis scale
+  labs(x = "Month", y = "Value", title = "Monthly Boxplots of Variables") +
+  theme_minimal()
+
+ggplot(ozone_long, aes(x = factor(Month), y = Value)) +
+  geom_boxplot() +
+  geom_jitter(width = 0.2, alpha = 0.5) +  # add daily points with some horizontal jitter
+  facet_wrap(~ Variable, scales = "free_y") +
+  labs(x = "Month", y = "Value", title = "Monthly Boxplots with Daily Points") +
+  theme_minimal()
+
+
+# Correlation Matrix
+# correlation matrix_visualization
+corr_matrix <- cor(ozone_clean)
+corrplot(corr_matrix, method = "circle", type = "lower", tl.cex = 0.8)
+
+
+# Time series plots
+# adding date from raw data 
+ozone_raw <- ozone %>%
+  mutate(Date = make_date(year = 1973, month = Month, day = Day))
+
+# Create a copy of ozone_clean
+ozone_clean_new <- ozone_clean
+
+# Add the Date column from ozone_raw, but only up to the number of rows in ozone_clean
+ozone_clean_new$Date <- ozone_raw$Date[1:nrow(ozone_clean_new)]
+
+# Ozone vs Solar.R
+ggplot(data = ozone_clean_new, aes(x = Date, y = Ozone)) +
+  geom_line() +
+  geom_point(aes(color = Solar.R), size = 1) +
+  labs(
+    title = "Ozone Levels Over Time (colored by Solar.R)",
+    x = "Date",
+    y = "Ozone (ppb)",
+    color = "Solar.R (lang)"
+  ) +
+  scale_color_viridis_c(option = "D", direction = -1) +
+  theme_classic()
+
+# Ozone vs Wind
+ggplot(data = ozone_clean_new, aes(x = Date, y = Ozone)) +
+  geom_line() +
+  geom_point(aes(color = Wind), size = 1) +
+  labs(
+    title = "Ozone Levels Over Time (colored by Wind)",
+    x = "Date",
+    y = "Ozone (ppb)",
+    color = "Wind (mph)"
+  ) +
+  scale_color_viridis_c(option = "D", direction = -1) +
+  theme_classic()
+
+# Ozone vs Temp
+ggplot(data = ozone_clean_new, aes(x = Date, y = Ozone)) +
+  geom_line() +
+  geom_point(aes(color = Temp), size = 1) +
+  labs(
+    title = "Ozone Levels Over Time (colored by Temp)",
+    x = "Date",
+    y = "Ozone (ppb)",
+    color = "Temp (°F)"
+  ) +
+  scale_color_viridis_c(option = "D", direction = -1) +
+  theme_classic()
+
+
+
+# regression with sub plots
+ozone_clean_month <- ozone_raw
+ozone_clean_month$month_name <- month(ozone_raw$Month, label = TRUE)
+
+# ozone vs solar.r
+ggplot(
+  data = ozone_clean_month,
+  aes(x = Solar.R, y = Ozone)
+) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(formula = y ~ x + 0, method = "lm", color = "red", se = FALSE) +
+  labs(
+    x = expression(paste("Solar.R (lang)")),
+    y = expression(paste("Ozone (ppb)")),
+    caption = "Scatter plot of Ozone vs Solar Radiation for each month from May to September. 
+               Red lines show linear regression fits with zero intercept."
+  ) +
+  facet_wrap(~month_name) +
+  theme_classic() +
+  theme(
+    plot.caption = element_text(hjust = 0, margin = margin(t = 10, b = 10), size = 9),
+    plot.caption.position = "plot"
+  )
+
+# ozone vs wind
+ggplot(
+  data = ozone_clean_month,
+  aes(x = Wind, y = Ozone)
+) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(formula = y ~ x + 0, method = "lm", color = "red", se = FALSE) +
+  labs(
+    x = expression(paste("Wind (mph)")),
+    y = expression(paste("Ozone (ppb)")),
+    caption = "Scatter plot of Ozone vs Wind for each month from May to September. 
+               Red lines show linear regression fits with zero intercept."
+  ) +
+  facet_wrap(~month_name) +
+  theme_classic() +
+  theme(
+    plot.caption = element_text(hjust = 0, margin = margin(t = 10, b = 10), size = 9),
+    plot.caption.position = "plot"
+  )
+
+# ozone vs Temp
+ggplot(
+  data = ozone_clean_month,
+  aes(x = Temp, y = Ozone)
+) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(formula = y ~ x + 0, method = "lm", color = "red", se = FALSE) +
+  labs(
+    x = expression(paste("Temp (°F)")),
+    y = expression(paste("Ozone (ppb)")),
+    caption = "Scatter plot of Ozone vs Temperature for each month from May to September. 
+               Red lines show linear regression fits with zero intercept."
+  ) +
+  facet_wrap(~month_name) +
+  theme_classic() +
+  theme(
+    plot.caption = element_text(hjust = 0, margin = margin(t = 10, b = 10), size = 9),
+    plot.caption.position = "plot"
+  )
+
+
+```
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
