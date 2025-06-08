@@ -7,7 +7,7 @@ output:
   html_document: default
 ---
 
-```{r setup, include=FALSE}
+```{r r_setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
 # installing packages in case not installed
@@ -31,7 +31,7 @@ library(viridis)
 ```
 
 
-```{r analysis1}
+```{r r_analysis1, echo=FALSE, message=FALSE, warning=FALSE}
 
 # introduction: this report exercise shows how ozone concentration is influenced by other variables like solar radiation, wind and temperature. To be specific, regression of the ozone variable on other variables (e.g., temperature, solar radiation, wind) is estimated for a directional relationship. Besides, correlation is also estimated to measure the strength and direction of linear association between variables.
 
@@ -289,42 +289,49 @@ knitr::kable(monthly_range_values, caption = "Table 3: Monthly Ranges of Ozone, 
 
 
 ```
-# The dataset used in this report exercise are diurnal air quality measurements based on four variables- 1) mean ozone levels measured in in ppb (parts per billion), 2) solar radiation measured in Langleys (lang) a unit of heat transmission to express the rate of solar radation received by the earth, 3) Average Wind speed measured in miles per hour (mph), 4) Maximum daly temperature measured in degrees Fahrenheit  (degree F). These measurements are from Roosevelt Island in New York.Th ere are around 153 observations (diurnal/ diurnal data points), in total, spread across 5 months from May 1973 - September 1973. 
+# Dataset Description- This report analyzes diurnal air quality measurements from New York across three sites—Roosevelt Island, Central Park, and LaGuardia Airport—recorded between May and September 1973 (153 observations). Variables include mean ozone levels (ppb), solar radiation (Langleys), average wind speed (mph), and maximum daily temperature (°F).
 
-# To understand the spread of these data points and identify outliers, box plots (visualization 1, without and with jitter points) were constructed for each variable across 5 months (May-September). The ozone variable shows right skewness with outliers, and mean greater than median, with the higher value outlier dragging the mean. This is true for all months except July. Compared to ozone, the rest of the variables have lesser outliers or extreme (abrupt) values. Solar radiation seemed to be left skewed in July, August and September, with  no outliers in August and September. It shows that the soalr radaition gradually decreases which makes sense as the daylight hours decreases and set the start of autumn. Solar radiation and ozone almost follows the same trend when taken into account the median lines. This trend also is in alignment with temperature variable during Auguts and September. With even lesser outlier, wind variable shows a slight increase to september again which implies onset of autumn. Mean, median and range values tabulated are in alignment with the boxplot and the outliers.
+# Data Distribution and Outliers- To understand variable distribution and detect outliers, monthly boxplots (visualisation 1) were created. Ozone showed right skewness with high-value outliers, except in July. Solar radiation displayed left skewness from July to September, with no outliers in August and September—indicating seasonal daylight decline. Median patterns in ozone and solar radiation, and later temperature, appeared aligned. Wind speeds had few outliers and showed a slight rise in September, consistent with early autumn. Summary statistics aligned well with these visual trends.
 
-# Upon observing how the ozone, temperature and solar radiation follows the same trend and how it reflects the wind patterns with the seasonal changes from early to summer to autumnal onset, the next step was to understand their correlation using correlation matrix (visualisation 2). The matrix values nearing 1 has the strongest correlation and nearing -1 the lowest. With ozone being the target variable, the correlation matrix values of ozone vs solar radiation, ozone vs temperature and ozone vs wind were considered for this exercise. In this direction, ozone and temperature has the highest value 0.69 inferring strongest correlation followed by ozone and solar radiation having 0.34. The weakest correlation between ozone and wind wsas given by the value -0.60.
+# Following the distribution analysis, correlation analysis revealed strong positive correlation (visualisation 2) between ozone and temperature (r = 0.69), a moderate positive correlation with solar radiation (r = 0.34), and a moderate negative correlation with wind (r = -0.60). These findings guided further analysis.
 
-# One of the questions I aim to explore is how the ozone variable is influenced by Solar radiation, Wind and Temperature. To investigate this, I am performing a regression analysis with Ozone as the dependent (target) variable and the others as independent (predictors). For this a regression analysis was done and multicollinearity tested to test if the output is influenced by the correlation of the predictor variables. Regression analysis shows that with each degree fahrenheit increase in temperature the mean ozone increases by 1.66 ppb and with each increase lang increase in solar radiation the mean ozone increases by 0.06 ppb. Both of these values are not a huge increase, but direct towards a statistically relevant pattern (p value < 0.05) that may warrant further investigation. It can also be interpreted that solar radiation is not a variable that could facilitate ozone depeltion considering this data was recorded in 1973, early 1970's, when CFCs were affecting ozone levels. 
+# Regression Analysis- A regression model assessed the influence of solar radiation, wind, and temperature on ozone levels. Results indicated that a 1°F rise in temperature increases ozone by 1.66 ppb, and a unit rise in solar radiation by 0.06 ppb. These effects, though modest, were statistically significant (p < 0.05). Multicollinearity tests confirmed low inter-correlation among predictors, supporting model reliability. Solar radiation had minimal ozone-depleting influence, aligning with the historical context of CFC-related impacts.
 
-# The scatterplots (visualisation 3) aligns with the observations from correlation and regression analysis, described above. Plot showing ozone vs temperature shows a positive correlation showing that as temperature increases, mean ozone concentration also increases. Ozone vs solar radiation does not show a strong correlation but a very moderate to low positive correlation, especially in May, June, July and September. However there are outliers in August which drags down the observations. Plot showing ozone vs wind does not show meaningful observation and the pattern does not follow a straight line and has outliers that could can explain the correlation and regression results. 
+# Scatterplots (visualisation 3) supported earlier findings: ozone and temperature exhibited a positive linear trend; ozone and solar radiation showed a weak-to-moderate relationship—disturbed by outliers in August; ozone and wind lacked a clear pattern. These visuals validated the observed regression outcomes. Temporal analysis (visualisation 4) revealed irregular ozone fluctuations, peaking mid-to-late August—consistent with summer conditions. The relationship with solar radiation weakened over time, generally declining as autumn approached, aside from a few anomalies.
 
-# Lastly, a temporal analysis (visualisation 4) was performed to explain the time trend of the variables and explain the change in the relationship of the variables. The plots showing the time trend of ozone levels wrt solar radiation conveys that, except for some spurious points (yellow dots) indicating solar radiation, the levels are irregular albeit with reaching maximum levels in the mid to the end of August. This could be explained by summer season. The pattern of the ozone levels from the figure cannot be explained as it does not show a consistent pattern, except that it decreases as it nears the autumn. 
+# Limitations- Despite its value, the dataset presents limitations. Observations span diverse sites with distinct characteristics—urban, natural, and insular—each with its own microclimate. Moreover, data were collected at varying times, introducing spatial and temporal heterogeneity that may confound results. These inconsistencies highlight the need for standardized, temporally and spatially aligned data collection. Nonetheless, this analysis provides a foundation for further exploration of seasonal and anthropogenic impacts on air quality.
 
-
-## Including Plots
-```{r plots}
+```{r plots, echo=FALSE}
 
 # Boxplots
 # Plot boxplots for each variable grouped by Month
-ggplot(ozone_long, aes(x = factor(Month), y = Value)) +
+boxplot <- ggplot(ozone_long, aes(x = factor(Month), y = Value)) +
   geom_boxplot() +
   facet_wrap(~ Variable, scales = "free_y") +  # separate plot for each variable, free y-axis scale
   labs(x = "Month", y = "Value", title = "Monthly Boxplots of Variables") +
   theme_minimal()
 
-ggplot(ozone_long, aes(x = factor(Month), y = Value)) +
+boxplot_jitter <- ggplot(ozone_long, aes(x = factor(Month), y = Value)) +
   geom_boxplot() +
   geom_jitter(width = 0.2, alpha = 0.5) +  # add daily points with some horizontal jitter
   facet_wrap(~ Variable, scales = "free_y") +
   labs(x = "Month", y = "Value", title = "Monthly Boxplots with Daily Points") +
   theme_minimal()
 
+print(boxplot)
+print(boxplot_jitter)
+
+ggsave("../figures/re_airquality_boxplot_visualisation1.jpg", plot = boxplot, width = 8, height = 6, dpi = 300)
+
+ggsave("../figures/re_airquality_boxplot1_jitter_supplement.jpg", plot = boxplot_jitter, width = 8, height = 6, dpi = 300)
 
 # Correlation Matrix
-# correlation matrix_visualization
+# correlation matrix_visualization2
 corr_matrix <- cor(ozone_clean)
+
 corrplot(corr_matrix, method = "circle", type = "lower", tl.cex = 0.8)
+
+print(corrplot)
 
 
 # Time series plots
@@ -339,7 +346,7 @@ ozone_clean_new <- ozone_clean
 ozone_clean_new$Date <- ozone_raw$Date[1:nrow(ozone_clean_new)]
 
 # Ozone vs Solar.R
-ggplot(data = ozone_clean_new, aes(x = Date, y = Ozone)) +
+temporal_ozone_solar <- ggplot(data = ozone_clean_new, aes(x = Date, y = Ozone)) +
   geom_line() +
   geom_point(aes(color = Solar.R), size = 1) +
   labs(
@@ -351,8 +358,13 @@ ggplot(data = ozone_clean_new, aes(x = Date, y = Ozone)) +
   scale_color_viridis_c(option = "D", direction = -1) +
   theme_classic()
 
+print(temporal_ozone_solar)
+
+ggsave("../figures/re_airquality_temporal_ozone_solar_visualisation4_1.jpg", plot = temporal_ozone_solar, width = 8, height = 6, dpi = 300)
+
+
 # Ozone vs Wind
-ggplot(data = ozone_clean_new, aes(x = Date, y = Ozone)) +
+temporal_ozone_wind <- ggplot(data = ozone_clean_new, aes(x = Date, y = Ozone)) +
   geom_line() +
   geom_point(aes(color = Wind), size = 1) +
   labs(
@@ -364,8 +376,12 @@ ggplot(data = ozone_clean_new, aes(x = Date, y = Ozone)) +
   scale_color_viridis_c(option = "D", direction = -1) +
   theme_classic()
 
+print(temporal_ozone_wind)
+
+ggsave("../figures/re_airquality_temporal_ozone_wind_visualisation4_3.jpg", plot = temporal_ozone_wind, width = 8, height = 6, dpi = 300)
+
 # Ozone vs Temp
-ggplot(data = ozone_clean_new, aes(x = Date, y = Ozone)) +
+temporal_ozone_temp <- ggplot(data = ozone_clean_new, aes(x = Date, y = Ozone)) +
   geom_line() +
   geom_point(aes(color = Temp), size = 1) +
   labs(
@@ -377,14 +393,17 @@ ggplot(data = ozone_clean_new, aes(x = Date, y = Ozone)) +
   scale_color_viridis_c(option = "D", direction = -1) +
   theme_classic()
 
+print(temporal_ozone_temp)
+
+ggsave("../figures/re_airquality_temporal_ozone_temp_visualisation4_2.jpg", plot = temporal_ozone_temp, width = 8, height = 6, dpi = 300)
 
 
-# regression with sub plots
+# cluster plots
 ozone_clean_month <- ozone_raw
 ozone_clean_month$month_name <- month(ozone_raw$Month, label = TRUE)
 
 # ozone vs solar.r
-ggplot(
+cluster_ozone_solar <- ggplot(
   data = ozone_clean_month,
   aes(x = Solar.R, y = Ozone)
 ) +
@@ -403,8 +422,13 @@ ggplot(
     plot.caption.position = "plot"
   )
 
+print(cluster_ozone_solar)
+
+ggsave("../figures/re_airquality_cluster_ozone_solar_visualisation3_1.jpg", plot = cluster_ozone_solar, width = 8, height = 6, dpi = 300)
+
+
 # ozone vs wind
-ggplot(
+cluster_ozone_wind <- ggplot(
   data = ozone_clean_month,
   aes(x = Wind, y = Ozone)
 ) +
@@ -423,8 +447,13 @@ ggplot(
     plot.caption.position = "plot"
   )
 
+print(cluster_ozone_wind)
+
+ggsave("../figures/re_airquality_cluster_ozone_wind_visualisation3_3.jpg", plot = cluster_ozone_wind, width = 8, height = 6, dpi = 300)
+
+
 # ozone vs Temp
-ggplot(
+cluster_ozone_temp <- ggplot(
   data = ozone_clean_month,
   aes(x = Temp, y = Ozone)
 ) +
@@ -442,6 +471,10 @@ ggplot(
     plot.caption = element_text(hjust = 0, margin = margin(t = 10, b = 10), size = 9),
     plot.caption.position = "plot"
   )
+
+print(cluster_ozone_temp)
+
+ggsave("../figures/re_airquality_cluster_ozone_temp_visualisation3_2.jpg", plot = cluster_ozone_temp, width = 8, height = 6, dpi = 300)
 
 
 ```

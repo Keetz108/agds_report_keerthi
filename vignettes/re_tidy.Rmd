@@ -24,7 +24,7 @@ library(tidyr)
 library(ggplot2)
 ```
 
-```{r analysis1}
+```{r r_analysis1}
 
 here::here("../data/RE1_tidy_data_S1.csv")
 
