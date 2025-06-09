@@ -358,19 +358,8 @@ matter during elevated CO2 experiments</h1>
 </div>
 
 
-<pre class="r"><code>#introduction: this report exercise shows analyses of changes in soil organic matter during elevated CO2 experiments
-
-# analysis
-
-here::here(&quot;data/RE1_tidy_data_S1.csv&quot;)</code></pre>
-<pre><code>## [1] &quot;C:/Users/Keetz/OneDrive/Desktop/Economics/AGDS 1/agds_report_keerthi/vignettes/data/RE1_tidy_data_S1.csv&quot;</code></pre>
-<pre class="r"><code>data &lt;- read.csv(&quot;data/RE1_tidy_data_S1.csv&quot;, col.names = c(&quot;Experiment&quot;, &quot;Time (years)&quot;, &quot;ambient CO2_mean&quot;, &quot;elevated CO2_mean&quot;, &quot;ambient CO2_n&quot;, &quot;elevated CO2_n&quot;))
-
-data &lt;- data[-1, ] 
-
-options(max.print = 10000)  #Adjust the number as needed
-
-data</code></pre>
+<pre><code>## [1] &quot;C:/Users/Keetz/OneDrive/Desktop/Economics/AGDS 1/agds_report_keerthi/../data/RE1_tidy_data_S1.csv&quot;</code></pre>
+<pre><code>## [1] &quot;C:/Users/Keetz/OneDrive/Desktop/Economics/AGDS 1/agds_report_keerthi/data/RE1_tidy_data_S1.csv&quot;</code></pre>
 <pre><code>##                       Experiment Time..years. ambient.CO2_mean
 ## 2   ArizonaFACE - wheat - high N            0             1344
 ## 3   ArizonaFACE - wheat - high N          0.5             1363
@@ -841,29 +830,6 @@ data</code></pre>
 ## 233              1214             4              4
 ## 234              1310             4              4
 ## 235              1183             4              4</code></pre>
-<pre class="r"><code>data$Time..years. &lt;- as.numeric(data$Time..years.)
-
-data$Phase &lt;- cut(data$Time..years., breaks = c(-Inf, 3, 6.001, Inf), labels = c(&quot;EarlyPhase&quot;, &quot;MidPhase&quot;, &quot;LatePhase&quot;), right = FALSE)
-
-data$&#39;ambient.CO2_mean&#39; &lt;- as.numeric(data$&#39;ambient.CO2_mean&#39;)
-
-data$&#39;elevated.CO2_mean&#39; &lt;- as.numeric(data$&#39;elevated.CO2_mean&#39;)
-
-data$log_Response_Ratio &lt;- log(data$`elevated.CO2_mean` / data$`ambient.CO2_mean`)
-
-agg_LRR &lt;- data %&gt;%
-  group_by(Phase) %&gt;%
-  summarise(mean_LRR = mean(log_Response_Ratio, na.rm = TRUE)) %&gt;%
-  pivot_wider(names_from = Phase, values_from = mean_LRR)
-
-data$agg_LRR_Early &lt;- mean(data$log_Response_Ratio[data$Phase == &quot;EarlyPhase&quot;], na.rm = TRUE)
-
-data$agg_LRR_Mid &lt;- mean(data$log_Response_Ratio[data$Phase == &quot;MidPhase&quot;], na.rm = TRUE)
-
-data$agg_LRR_Late &lt;- mean(data$log_Response_Ratio[data$Phase == &quot;LatePhase&quot;], na.rm = TRUE)
-
-#tables from knitr function
-kable(data, caption = &quot;Log-Response Ratios for SOC under Ambient and Elevated CO2&quot;)</code></pre>
 <table style="width:100%;">
 <caption>Log-Response Ratios for SOC under Ambient and Elevated
 CO2</caption>
@@ -4176,7 +4142,6 @@ CO2</caption>
 </tr>
 </tbody>
 </table>
-<pre class="r"><code>kable(data.frame(mean_LRR = agg_LRR), caption = &quot;Mean Log-Response Ratio&quot;)</code></pre>
 <table>
 <caption>Mean Log-Response Ratio</caption>
 <thead>
@@ -4194,23 +4159,39 @@ CO2</caption>
 </tr>
 </tbody>
 </table>
-<p>#What are the data that you are looking at? #Answer: The data shows
-the changes in the soil organic carbon over the years (classified as
-early, mid and late phases) in different ecosystems in reponse to
-exposure of different CO2 exposure.</p>
-<p>#What do you expect your analysis to show, what is your hypothesis?
-How should soil organic matter content change under elevated CO2?
-#Answer: The observation derived from the mean aggregate values is in
+<div id="introduction-this-report-exercise-shows-analyses-of-changes-in-soil-organic-matter-during-elevated-co2-experiments" class="section level1">
+<h1>Introduction: this report exercise shows analyses of changes in soil
+organic matter during elevated CO2 experiments</h1>
+</div>
+<div id="what-are-the-data-that-you-are-looking-at" class="section level1">
+<h1>What are the data that you are looking at?</h1>
+</div>
+<div id="answer-the-data-shows-the-changes-in-the-soil-organic-carbon-over-the-years-classified-as-early-mid-and-late-phases-in-different-ecosystems-in-reponse-to-exposure-of-different-co2-exposure." class="section level1">
+<h1>Answer: The data shows the changes in the soil organic carbon over
+the years (classified as early, mid and late phases) in different
+ecosystems in reponse to exposure of different CO2 exposure.</h1>
+</div>
+<div id="what-do-you-expect-your-analysis-to-show-what-is-your-hypothesis-how-should-soil-organic-matter-content-change-under-elevated-co2" class="section level1">
+<h1>What do you expect your analysis to show, what is your hypothesis?
+How should soil organic matter content change under elevated CO2?</h1>
+</div>
+<div id="answer-the-observation-derived-from-the-mean-aggregate-values-is-in-compliance-with-the-steady-state-rule-of-chemical-kinetics.-during-the-early-phase-when-the-activity-is-in-its-initial-stage-the-initial-primed-carbon-supply-initial-amount-of-substrate-from-atmosphere-boosts-the-activity-and-therby-the-soil-organic-carbon-product.-as-the-process-continues-with-increased-activites-of-plants-and-microbes-the-rate-of-production-of-soc-increases-and-saturates-soil-thereby-dropping-the-levels.-it-establishes-a-feedback-loop-to-be-in-equilibrium." class="section level1">
+<h1>Answer: The observation derived from the mean aggregate values is in
 compliance with the steady state rule of chemical kinetics. During the
 early phase, when the activity is in its initial stage, the initial
 primed carbon supply (initial amount of substrate) from atmosphere
 boosts the activity and therby the soil organic carbon (product). As the
 process continues with increased activites of plants and microbes, the
 rate of production of SOC increases and saturates soil, thereby dropping
-the levels. It establishes a feedback loop to be in equilibrium.</p>
-<p>#Interpret your results after aggregating the data: What do your
+the levels. It establishes a feedback loop to be in equilibrium.</h1>
+</div>
+<div id="interpret-your-results-after-aggregating-the-data-what-do-your-final-numbers-mean-do-they-support-your-initial-hypothesis-why-so-why-not" class="section level1">
+<h1>Interpret your results after aggregating the data: What do your
 final numbers mean? Do they support your initial hypothesis? Why so, why
-not? #The mean aggregate levels show a gradual increase in soil organic
+not?</h1>
+</div>
+<div id="the-mean-aggregate-levels-show-a-gradual-increase-in-soil-organic-carbon-levels-from-early-to-mid-phase-in-the-exposed-ecosystems.-this-infers-slow-accumulation-of-soil-organic-carbon-soc-which-could-be-likely-due-to-increased-productivity-of-plants-root-exudation-biomass-accumulation-and-microbial-decomposition-in-the-soil.-however-this-increase-is-modest-and-does-not-continue-after-6th-year.-after-6th-year-there-is-a-drastic-decline-in-soc-levels-from-end-of-mid-phase-to-late-phase-which-could-be-accounted-to-the-carbon-saturation-of-soil-which-limits-further-carbon-storage.-this-results-in-loss-of-soil-carbon-through-its-oxidation-turning-to-co2.-gradually-it-stabilizes-equilibrates-soil-carbon-levels.-this-pattern-aligns-with-kinetic-limitations-on-soil-carbon-storage." class="section level1">
+<h1>The mean aggregate levels show a gradual increase in soil organic
 carbon levels from early to mid phase in the exposed ecosystems. This
 infers slow accumulation of soil organic carbon (SOC) which could be
 likely due to increased productivity of plants, root exudation, biomass
@@ -4221,7 +4202,8 @@ phase) which could be accounted to the carbon saturation of soil which
 limits further carbon storage. This results in loss of soil carbon
 through its oxidation turning to CO2. Gradually, it stabilizes/
 equilibrates soil carbon levels. This pattern aligns with kinetic
-limitations on soil carbon storage.</p>
+limitations on soil carbon storage.</h1>
+</div>
 
 
 
