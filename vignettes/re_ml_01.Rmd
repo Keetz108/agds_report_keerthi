@@ -2,14 +2,16 @@
 title: "re_ml01.Rmd"
 author: "Keerthi Divakaran"
 date: "2025-05-04"
-output: html_document
+output: 
+  html_document:
+    toc: true
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
 # installing packages in case not installed
-use_pkgs <- c("dplyr", "caret", "tidyverse","knitr", "tidyr", "ggplot2", "rmarkdown", "rsample", "recipes", "Metrics", "FNN")  
+use_pkgs <- c("dplyr", "caret", "tidyverse","knitr", "tidyr", "ggplot2", "rmarkdown", "rsample", "recipes", "Metrics", "FNN", "yardstick", "purrr")  
 new_pkgs <- use_pkgs[!(use_pkgs %in% installed.packages()[, "Package"])]
 if (length(new_pkgs) > 0) install.packages(new_pkgs,repos = "http://cran.us.r-project.org")
 invisible(lapply(use_pkgs, require, character.only = TRUE))
@@ -27,16 +29,18 @@ library(rsample)
 library(recipes)
 library(FNN)
 library(Metrics)
+library(yardstick)
+library(purrr)
 
 ```
 
 
-```{r analysis 1}
+```{r r_analysis1, echo=FALSE, message=FALSE, warning=FALSE}
 
 # Comparison of the linear regression and KNN models
 
 # 1 Load functions from external R script
-source(paste(here(),"data/my_analysis_function.R", sep= "/"))
+source("../data/my_analysis_function.R")
 
 # 2 Interpretation below, outside this chunk
 
@@ -56,7 +60,7 @@ daily_fluxes_long <- daily_fluxes %>%
                names_to = "Model", values_to = "GPP")
 
 # Plot temporal variations of observed and modeled GPP
-ggplot(daily_fluxes_long, aes(x = TIMESTAMP, y = GPP, color = Model)) +
+temporal_var <- ggplot(daily_fluxes_long, aes(x = TIMESTAMP, y = GPP, color = Model)) +
   geom_line() +
   labs(title = "Temporal Variations of Observed and Modeled GPP", 
        x = "Date", y = "GPP_NT_VUT_REF") + # Label the Y-axis as 'GPP_NT_VUT_REF'
@@ -64,12 +68,13 @@ ggplot(daily_fluxes_long, aes(x = TIMESTAMP, y = GPP, color = Model)) +
   scale_color_manual(values = c("black", "blue", "red"), 
                      labels = c("Observed GPP", "Linear Regression", "KNN"))
 
+print(temporal_var)
 
+ggsave("../figures/re_ml_01_temporal_var_plot1.jpg", plot = temporal_var, width = 8, height = 6, dpi = 300)
 ```
 
 
-
-```{r analysis 2}
+```{r r_analysis2, echo=FALSE, message=FALSE, warning=FALSE }
 
 # The role of k
 
@@ -83,34 +88,37 @@ ggplot(daily_fluxes_long, aes(x = TIMESTAMP, y = GPP, color = Model)) +
 # 1. Load the dataset
 daily_fluxes <- read.csv("../data/FLX_CH-Dav_FLUXNET2015_FULLSET_DD_1997-2014_1-3.csv")
 
-
-# 2. Split the data into training and test sets
-set.seed(1982)  # For reproducibility
-split <- initial_split(daily_fluxes, prop = 0.7, strata = "VPD_F")
-daily_fluxes_train <- training(split)
-daily_fluxes_test <- testing(split)
-
-
-# 3. Preprocessing recipe: using key predictors
-pp <- recipe(GPP_NT_VUT_REF ~ SW_IN_F + VPD_F + TA_F, 
-             data = daily_fluxes_train |> drop_na()) |> 
-  step_BoxCox(all_predictors()) |> 
-  step_center(all_numeric_predictors()) |>
-  step_scale(all_numeric_predictors())
+# Data splitting
+set.seed(1982)  # for reproducibility
+split <- rsample::initial_split(daily_fluxes, prop = 0.7, strata = "VPD_F")
+daily_fluxes_train <- rsample::training(split)
+daily_fluxes_test <- rsample::testing(split)
+df_train <- daily_fluxes_train |> drop_na()
+df_test <- daily_fluxes_test |> drop_na()
 
 
-# 4. Train KNN model using 10-fold cross-validation
-set.seed(1982)
-mod_cv <- train(pp, 
-                data = daily_fluxes_train |> drop_na(), 
-                method = "knn",
-                trControl = trainControl(method = "cv", number = 10),
-                tuneGrid = data.frame(k = c(2, 5, 10, 15, 20, 25, 30, 35, 40, 60, 100)),
-                metric = "MAE")  # Evaluation metric, but Rsquared also reported
+# 2. Model and pre-processing formulation, use all variables but LW_IN_F
+pp <- recipes::recipe(GPP_NT_VUT_REF ~ SW_IN_F + VPD_F + TA_F, 
+                      data = daily_fluxes_train |> drop_na()) |> 
+  recipes::step_BoxCox(recipes::all_predictors()) |> 
+  recipes::step_center(recipes::all_numeric(), -recipes::all_outcomes()) |>
+  recipes::step_scale(recipes::all_numeric(), -recipes::all_outcomes())
 
-print(mod_cv)
 
-# 5. Extract and reshape results for plotting
+# 3. Fit KNN model with a range of k values
+k_values <- c(2, 5, 10, 15, 20, 25, 30, 35, 40, 60, 100, nrow(df_train))
+
+mod_cv <- caret::train(pp, 
+                       data = daily_fluxes_train |> drop_na(), 
+                       method = "knn",
+                       trControl = caret::trainControl(method = "cv", number = 10),
+                       tuneGrid = data.frame(k = c(2, 5, 10, 15, 20, 25, 30, 35, 40, 60, 100)),
+                       metric = "MAE")
+
+mod_cv
+
+
+# 4. Extract and reshape results for plotting
 results_df <- mod_cv$results %>%
   select(k, MAE, Rsquared) %>%
   pivot_longer(cols = c("MAE", "Rsquared"),
@@ -118,188 +126,100 @@ results_df <- mod_cv$results %>%
                values_to = "Value")
 
 
+# 5. Optimal k values of both MAE and R squared
+# optimal k with minimum MAE (optimal MAE)
+optimal_k_mae <- mod_cv$results$k[which.min(mod_cv$results$MAE)]
+optimal_k_mae
+
+# optimal k with maximum R-squared (best fit)
+optimal_k_r2 <- mod_cv$results$k[which.max(mod_cv$results$Rsquared)]
+optimal_k_r2
+
+cat("Optimal k based on training MAE:", optimal_k_mae, "\n")
+cat("Optimal k based on training R-squared:", optimal_k_r2, "\n")
+
+
 # 6. Plot MAE and R² vs k
-ggplot(results_df, aes(x = k, y = Value, color = Metric)) +
+
+optimum_k <- ggplot(results_df, aes(x = k, y = Value, color = Metric)) +
   geom_line(size = 1) +
   geom_point(size = 2) +
-  scale_color_manual(values = c("MAE" = "red", "Rsquared" = "blue")) +
+  scale_color_manual(values = c("MAE" = "darkred", "Rsquared" = "blue")) +
   labs(title = "Model Complexity (k) vs. MAE and R-squared",
        x = "Number of Neighbors (k)",
        y = "Metric Value",
        color = "Metric") +
   theme_minimal()
 
+print(optimum_k)
 
-# 7. overfitting and underfitting regions in the graph from 6
+ggsave("../figures/re_ml_01_plot2.jpg", plot = optimum_k, width = 8, height = 6, dpi = 300)
 
-# Function to compute test set MAE for a given k
-get_test_mae <- function(k_value) {
-  set.seed(1982)
-  
-  # Create pre-processing recipe
-  pp <- recipe(GPP_NT_VUT_REF ~ SW_IN_F + VPD_F + TA_F, data = daily_fluxes_train) |>
-    step_BoxCox(all_predictors()) |>
-    step_center(all_numeric_predictors()) |>
-    step_scale(all_numeric_predictors())
-  
-  # Fit KNN model
-  mod <- train(
+
+# 7. Optimal k based on CV MAE
+optimal_k_train <- mod_cv$results %>% 
+  filter(MAE == min(MAE)) %>% 
+  pull(k)
+
+cat("Optimal k based on 10-fold CV (train set):", optimal_k_train, "\n")
+optimal_k_train
+
+
+# 8.  Function that takes k and returns test MAE
+get_test_mae <- function(k) {
+  mod <- caret::train(
     pp,
-    data = daily_fluxes_train |> drop_na(),
+    data = df_train,
     method = "knn",
-    tuneGrid = data.frame(k = k_value),
-    trControl = trainControl(method = "none")  # no CV, we want to evaluate on test set
+    trControl = caret::trainControl(method = "none"),
+    tuneGrid = data.frame(k = k),
+    metric = "MAE"
   )
   
-  # Predict on test set
-  preds <- predict(mod, newdata = daily_fluxes_test |> drop_na())
+  predictions <- predict(mod, newdata = df_test)
+  mae <- mean(abs(predictions - df_test$GPP_NT_VUT_REF), na.rm = TRUE)
   
-  # True values
-  actual <- daily_fluxes_test |> drop_na() |> pull(GPP_NT_VUT_REF)
-  
-  # Compute MAE
-  mae <- yardstick::mae_vec(truth = actual, estimate = preds)
-  
-  return(mae)
+  return(data.frame(k = k, MAE_test = mae))
 }
 
 
+# 9. best k on test set
+k_values <- c(2, 5, 10, 15, 20, 25, 30, 40, 60, 100)
 
-# 8. Example usage
+test_results <- purrr::map_dfr(k_values, get_test_mae)
 
-get_test_mae(5)
-get_test_mae(40)
-
-k_values <- c(2, 5, 10, 20, 40, 60, 100)
-test_maes <- sapply(k_values, get_test_mae)
-
-plot_df <- data.frame(k = k_values, Test_MAE = test_maes)
-
-ggplot(plot_df, aes(x = k, y = Test_MAE)) +
-  geom_line() +
-  geom_point() +
-  labs(title = "Test MAE vs. k",
-       x = "k (number of neighbors)",
-       y = "Test MAE")
+optimal_k_test <- test_results$k[which.min(test_results$MAE_test)]
+cat("Optimal k on test set:", optimal_k_test)
 
 
+# 10. visualisation
+test_optimum_k <- ggplot(test_results, aes(x = k, y = MAE_test)) +
+  geom_line(color = "darkred", size = 1) +
+  geom_point(size = 2) +
+  geom_vline(xintercept = 30, linetype = "dashed", color = "blue") +
+  labs(title = "Test Set MAE vs k (Number of Neighbors)",
+       x = "k (Number of Neighbors)",
+       y = "Test MAE") +
+  theme_minimal()
 
-# 9 Finding optimal k
+print(test_optimum_k)
 
-find_optimal_k <- function(k_values, train_data, test_data, predictors, response) {
-  mae_test <- sapply(k_values, function(k) {
-    model <- train(
-      x = train_data[, predictors],
-      y = train_data[[response]],
-      method = "knn",
-      tuneGrid = data.frame(k = k),
-      trControl = trainControl(method = "none")
-    )
-    preds <- predict(model, newdata = test_data[, predictors])
-    mean(abs(preds - test_data[[response]]))
-  })
-  optimal_k <- k_values[which.min(mae_test)]
-  return(list(optimal_k = optimal_k, mae_test = mae_test))
-}
-
-# Usage:
-results <- find_optimal_k(k_values = 1:40, train_data, test_data, predictors, response)
-cat("Optimal k:", results$optimal_k, "\n")
-
-
+ggsave("../figures/re_ml_01_plot3.jpg", plot = test_optimum_k, width = 8, height = 6, dpi = 300)
 
 knitr::opts_chunk$set(echo = TRUE)
-
 ```
 
-# 2. Interpret observed differences in the context of the bias-variance trade-off:
-
-# 2a. Why is the difference between the evaluation on the training and the test set larger for the KNN model than for the linear regression model?
-
-# lm Train value:R sq 0.67 and RMSE 1.58; Test value: R sq 0.67 and RMSE 1.6
-# KNN Train value:R sq 0.77 and RMSE 1.31; Test value: R sq 0.72 and RMSE 1.49
-
-# Interpretation: Linear regression model (lm) is not particularly flexible and it has only two parameters, slope and intercept, providing a straight line for the best fit between predictors and targets. Owing to its simplicity, there is a risk of not fully capturing the complexity of the data, and missing out the better precision of the interactions between predictors and targets. Unlike lm, K-Nearest Neighbours (KNN) model is a machine learning method which is extremely flexible that it provides information on the highly non-linear relationships and deal with interactions between large number of targets and predictors. This also bears the risk of overfitting.In the given data set run using lm  (train: R sq 0.67 and RMSE 0.58, test: R sq 0.67 and RMSE 0.6) and KNN (train: R sq 0.77 and RMSE 1.31, test: R sq 0.72 and RMSE 1.49), the larger values for the KNN model compared to lm could be attributed to the latter's better sensitivity in capturing the relationships between targets and predictors. This could also lead to overfitting. Although variance explained through R sq in KNN model suggest a better fit of 77% in train and 72% in test, the RMSE values 1.31 and 1.49 of train and test shows the possibility of overfitting.
-
-# 2b. Why does the evaluation on the test set indicate a better model performance of the KNN model than the linear regression model?
+# 2. Observation: lm Train value:R sq 0.67 and RMSE 1.58; Test value: R sq 0.67 and RMSE 1.6. KNN Train value:R sq 0.77 and RMSE 1.31; Test value: R sq 0.72 and RMSE 1.49 (figs saved as re_ml_01_mod_lm and re_ml_01_mod_knn in the directory).
+# Interpretation: Linear regression model (lm) is not particularly flexible and it has only two parameters, slope and intercept, providing a straight line for the best fit between predictors and targets. owing to its simplicity, there is a risk of not fully capturing the complexity of the data, and missing out the better precision of the interactions between predictors and targets. Unlike lm, K-Nearest Neighbours (KNN) model is a machine learning method which is extremely flexible that it provides information on the highly non-linear relationships and deal with interactions between large number of targets and predictors. This also bears the risk of overfitting.In the given data set run using lm  (train: R sq 0.67 and RMSE 0.58, test: R sq 0.67 and RMSE 0.6) and KNN (train: R sq 0.77 and RMSE 1.31, test: R sq 0.72 and RMSE 1.49), the larger values for the KNN model compared to lm could be attributed to the latter's better sensitivity in capturing the relationships between targets and predictors. This could also lead to overfitting. Although variance explained through R sq in KNN model suggest a better fit of 77% in train and 72% in test, the RMSE values 1.31 and 1.49 of train and test shows the possibility of overfitting.
 
 # Test set values (KNN model): R sq 0.72 and RMSE 1.49
 # Test set values (lm model): R sq 0.67 and RMSE 1.6
-
-# In the test set, KNN model, although having the risk of overfitting, has performed better than lm. R sq values have risen to 0.72 from 0.67 which captures better information about the variance in the test data therby improving the fit of the model. RMSE values, which measures the magnitude of errors in the predictions, improved from 1.6 to 1.49 in KNN model. This means the difference between the true and predicted values have reduced increasing the credibility of the KNN model. Thus, KNN model performs better on the test set as compared to the lm model.
-
-
+# Test set of KNN model, although having the risk of overfitting, has performed better than lm. R sq values have risen to 0.72 from 0.67 which captures better information about the variance in the test data therby improving the fit of the model. RMSE values, which measures the magnitude of errors in the predictions, improved from 1.6 to 1.49 in KNN model. This means the difference between the true and predicted values have reduced increasing the credibility of the KNN model. Thus, KNN model performs better on the test set as compared to the lm model.
 
 # The role of k
+# 1. Hypothesis: R squared measures the proportion of variance or spread of the data in the dependent variable that is predicted from the independent variables. As k approaches 1, R squared decreases and can be highly sensitive affected by the noise of the single point resulting in overfitting. As k approaches N, R squared can initially improve because the model becomes less sensitive to noise. However, when it becomes too large, the model becomes too generalized decreasing the R squared as it fails to capture the underlying patterns in the data. As k approaches N, it smooth out decision boundary leading to underfitting. 
+#Mean Absolute Error (MAE) is the average of the absolute differences between predicted and actual values. As k approaches 1, the MAE of the model might be low resulting in overfitting. As k approaches N, the MAE increases resulting in underfitting.
 
-# 1. State the hypothesis for how the R squared and the MAE evaluated on the test and training set would change for k approachng 1 and for k approaching N (without running the code). Hypothesis backed by bias-variance-trade-off concept. 
- 
-# Hypothesis: 
-# R squared measures the proportion of variance or spread of the data in the dependent variable that is predicted from the independent variables (predictors). As k approaches 1, R squared decreases and can be highly sensitive affected by the noise of the single point resulting in overfitting. As k approaches N, R squared can initially improve because the model becomes less sensitive to noise. However, when it becomes too large, the model becomes too generalized decreasing the R squared as it fails to capture the underlying patterns in the data. As k approaches N, it smooth out decision boundary leading to underfitting. 
-# Mean Absolute Error (MAE) is the average of the absolute differences between predicted and actual values.
-# As k approaches 1, the MAE of the model might be low resulting in overfitting. As k approaches N, the MAE increases resulting in higher MAE resulting in underfitting. 
+# Underfitting happens when  the model is too simple to capture the underlying data patterns. In the plot underfitting happens as k increases leading to increase of MAE (both train and test). The model is smooth, ignoring important data points. Overfitting happens when the model is too complex and fits noise in the training data. In the plot, this happens where k is small (k= below 5), lowering MAE in train but high in test. At optimal k, the test MAE stays minimum.
 
-
-# 2. Testing hypothesis
-
-# splitting data and visualisation
-# overfitting and underfitting regions in the graph
-# f(k)= MAE
-
-
-
-```{r setup, include=FALSE}
-
-
-
-
-
-knitr::opts_chunk$set(echo = TRUE)
-```
-
-
-
-
-
-```{r gpp-histogram, fig.width=6, fig.height=4}
-daily_fluxes |> 
-  ggplot(aes(x = GPP_NT_VUT_REF, y = ..count..)) + 
-  geom_histogram()
-```
-
-```{r eval-model-plots }
-eval_model(mod = mod_lm, df_train = daily_fluxes_train, df_test = daily_fluxes_test)
-eval_model(mod = mod_knn, df_train = daily_fluxes_train, df_test = daily_fluxes_test)
-```
-
-```{r eval-model-plots }
-ggplot(daily_fluxes_long, aes(x = TIMESTAMP, y = GPP, color = Model)) +
-  geom_line() +
-  labs(title = "Temporal Variations of Observed and Modeled GPP", 
-       x = "Date", y = "GPP_NT_VUT_REF") + # Label the Y-axis as 'GPP_NT_VUT_REF'
-  theme_minimal() +
-  scale_color_manual(values = c("black", "blue", "red"), 
-                     labels = c("Observed GPP", "Linear Regression", "KNN"))
-
-```
-
-
-```{r setup, include=FALSE}
-
-knitr::opts_chunk$set(echo = TRUE)
-```
-
-
-```{r cars}
-summary(cars)
-```
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+# Model generalisability is evaluated across a range of k values using test set MAE as the performance metric. As the value of k increased, test MAE initially decreased, reaching a minimum at k = 30, beyond which performance plateaued or slightly worsened. This pattern reflects a classic tradeoff between bias and variance: lower k values risk overfitting, while excessively high k values lead to underfitting due to over-smoothing. The region around k = 30 represents a sweet spot where the model maintains a balance between capturing signal and avoiding noise. The lowest test MAE at k = 30 thus represents the best generalisation performance.
