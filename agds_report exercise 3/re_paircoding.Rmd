@@ -1,0 +1,23 @@
+---
+title: "re_pair coding"
+author: "Keerthi Divakaran"
+date: "2025-06-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+
+https://github.com/TrinidadTimo/agds_re_paircoding.git
+
+https://github.com/Keetz108/forked_repo_fromtimo_agds_report_exercise_3.1.git
+
+https://github.com/Keetz108/agds_re3.git
+
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+
